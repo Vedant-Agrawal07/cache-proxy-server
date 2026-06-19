@@ -26,7 +26,7 @@ program
       return;
     }
 
-    // Validate the origin URL
+
     try {
       const url = new URL(options.origin);
 
