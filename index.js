@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import startServer from "./server.js";
 import { program } from "commander";
-import cacheStats from "./utils/cache_stats.js";
-import cacheClear from "./utils/cache_clear.js";
+import cacheStats from "./commands/cache_stats.js";
+import cacheClear from "./commands/cache_clear.js";
 function isValidHttpsUrl(string) {
   if (!URL.canParse(string)) {
     return false;

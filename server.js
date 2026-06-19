@@ -1,16 +1,27 @@
 import fs from "fs";
 import path from "path";
 import express from "express";
-import prisma from "./db/db.js";
-import mime from "mime-types";
-import crypto from "crypto";
+import { extractHeaders, getContentInfo } from "./utils/responseUtils.js";
+import { getRedisCache, setRedisCache } from "./redis/redisCache.js";
+
+import {
+  getPrismaCache,
+  setPrismaCache,
+  deletePrismaCache,
+} from "./db/prismaCache.js";
+
+import {
+  fileExists,
+  readFileBuffer,
+  writeCacheFile,
+  deleteCacheFile,
+} from "./utils/fileCache.js";
+
+import { CACHE_DIR, TTL } from "./utils/constants.js";
+import { generateHash } from "./utils/hash.js";
+import { isExpired } from "./utils/expireUtil.js";
 
 const app = express();
-
-// base path
-const CACHE_DIR = path.join(process.cwd(), "cache");
-// time to liev
-const TTL = 24 * 60 * 60 * 1000;
 
 const startServer = async (options) => {
   if (!options.port) {
@@ -26,47 +37,61 @@ const startServer = async (options) => {
     try {
       const reqPath = req.path;
       const remoteUrl = `${options.origin}${reqPath}`;
-      // convert file path to hash
-      const hashFileName = crypto
-        .createHash("sha256")
-        .update(remoteUrl)
-        .digest("hex");
 
-        // subsequent fike path
+      const hashFileName = generateHash(remoteUrl);
+
       let localFilePath = path.join(CACHE_DIR, reqPath);
-      const pathData = await prisma.path.findUnique({
-        where: {
-          hashFileName,
-        },
-      });
+
+      // chk redis HIT
+
+      const redisData = await getRedisCache(hashFileName);
+
+      if (redisData) {
+        const headers = JSON.parse(redisData.headers);
+        Object.keys(headers).forEach((key) => {
+          res.setHeader(key, headers[key]);
+        });
+        console.log(`cache HIT at ${remoteUrl}`);
+        res.setHeader("x-cache", "HIT-REDIS");
+        const buffer = Buffer.from(redisData.resBody, "base64");
+        res.send(buffer);
+        return;
+      }
+
+      //chk prisma HIT
+
+      const pathData = await getPrismaCache(hashFileName);
 
       if (pathData) {
+        const isExpired = isExpired(pathData.createdAt);
 
-        const isExpired = new Date(pathData.createdAt).getTime() + TTL < Date.now();
+        console.log(`is expired ? ${isExpired}`);
 
         if (!isExpired) {
-
           const absolutePath = path.resolve(pathData.localFilePath);
 
-          if (fs.existsSync(absolutePath)) {
-
+          if (fileExists(absolutePath)) {
+            const buffer = readFileBuffer(absolutePath);
             const headers = JSON.parse(pathData.headers);
-            
+
+            await setRedisCache(hashFileName, buffer, pathData.headers);
+
             Object.keys(headers).forEach((key) => {
               res.setHeader(key, headers[key]);
             });
 
             console.log(`cache HIT at ${remoteUrl}`);
-            res.setHeader("x-cache", "HIT");
+            res.setHeader("x-cache", "HIT-DISK");
             res.sendFile(absolutePath);
             return;
           }
         }
-        await prisma.path.delete({ where: { hashFileName } });
-        fs.rmSync(absolutePath, { force: true, recursive: true });
+        await deletePrismaCache(hashFileName);
+        deleteCacheFile(pathData.localFilePath);
       }
 
       const response = await fetch(remoteUrl);
+
       if (!response.ok) {
         res.status(response.status).send(await response.text());
         return;
@@ -74,47 +99,28 @@ const startServer = async (options) => {
 
       console.log(`cache MISS at ${remoteUrl}`);
 
-      const headers = {};
-      response.headers.forEach((value, key) => {
-        const lowerCaseKey = key.toLowerCase();
+      const headers = extractHeaders(response, res);
 
-        if (
-          lowerCaseKey !== "content-encoding" &&
-          !lowerCaseKey.includes("x-cache")
-        ) {
-          headers[key] = value;
-          res.setHeader(key, value);
-        }
-      });
-      console.log(headers);
-      const contentType =
-        response.headers.get("content-type") || `application/octet-stream`;
-      const ext = mime.extension(contentType);
+      const { contentType, ext } = getContentInfo(response);
+
       localFilePath = path.join(localFilePath, hashFileName);
       localFilePath = `${localFilePath}.${ext}`;
+
       const buffer = Buffer.from(await response.arrayBuffer());
-      fs.mkdirSync(path.dirname(localFilePath), { recursive: true });
-      fs.writeFileSync(localFilePath, buffer);
+      writeCacheFile(localFilePath, buffer);
+
       const headersString = JSON.stringify(headers);
+
       try {
-        await prisma.path.upsert({
-          where: {
-            hashFileName,
-          },
-          update: {
-            localFilePath,
-            contentType,
-            extension: ext,
-            headers: headersString,
-          },
-          create: {
-            hashFileName,
-            localFilePath,
-            contentType,
-            extension: ext,
-            headers: headersString,
-          },
-        });
+        await setPrismaCache(
+          hashFileName,
+          localFilePath,
+          contentType,
+          ext,
+          headersString,
+        );
+
+        await setRedisCache(hashFileName, buffer, headersString);
       } catch (error) {
         console.error(error);
         res.status(500).send("Database Error");
