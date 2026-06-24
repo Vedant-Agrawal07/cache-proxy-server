@@ -1,0 +1,26 @@
+/* app.css */
+
+/* 1. Define your variables at the top */
+:root {
+  --bg: #ffffff;
+  --text: #1a1a1a;
+  --sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 2. Global styles for the body */
+body {
+  margin: 0;
+  background: var(--bg);
+  background-color: #0B0E14;
+  color: var(--text);
+  font-family: var(--sans);
+  padding-left: 10rem;
+  padding-right: 10rem;
+  padding-top: 2rem;
+}
+
+/* 3. Your centered "imaginary container" */
+.wrap { 
+  max-width: 900px; 
+  margin: 0 auto; 
+}

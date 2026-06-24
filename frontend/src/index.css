@@ -1,0 +1,7 @@
+@import "tailwindcss";
+@layer components {
+  .my-text {
+    /* You can use @apply to stack Tailwind classes together under one name! */
+    @apply text-sm text-gray-400 font-['Consolas'];
+  }
+}

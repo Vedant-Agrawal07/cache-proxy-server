@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import startServer from "../server.js";
+import startServer from "./server.js";
 import { program } from "commander";
 import cacheStats from "./commands/cache_stats.js";
 import cacheClear from "./commands/cache_clear.js";

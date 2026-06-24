@@ -20,9 +20,12 @@ import {
 import { CACHE_DIR, TTL } from "./utils/constants.js";
 import { generateHash } from "./utils/hash.js";
 import { isExpired } from "./utils/expireUtil.js";
+import { stats } from "./stats.js";
+import adminRoute from "./route/adminRoute.js";
+import cors from "cors"
 
 const app = express();
-
+app.use(cors());
 const startServer = async (options) => {
   if (!options.port) {
     console.error("no port");
@@ -32,10 +35,15 @@ const startServer = async (options) => {
     console.error("no path");
     return;
   }
-
+ app.use("/api/admin", adminRoute);
+ 
   app.use(async (req, res) => {
     try {
+      const startTime = Date.now();
+      let requestData = {};
+      stats.totalRequests++;
       const reqPath = req.path;
+      requestData["reqPath"] = reqPath;
       const remoteUrl = `${options.origin}${reqPath}`;
 
       const hashFileName = generateHash(remoteUrl);
@@ -47,6 +55,7 @@ const startServer = async (options) => {
       const redisData = await getRedisCache(hashFileName);
 
       if (redisData) {
+        stats.cacheHits++;
         const headers = JSON.parse(redisData.headers);
         Object.keys(headers).forEach((key) => {
           res.setHeader(key, headers[key]);
@@ -54,6 +63,14 @@ const startServer = async (options) => {
         console.log(`cache HIT at ${remoteUrl}`);
         res.setHeader("x-cache", "HIT-REDIS");
         const buffer = Buffer.from(redisData.resBody, "base64");
+        const age = Date.now() - parseInt(redisData.createdAt);
+        const latency = Date.now() - startTime;
+        requestData["latency"] = latency;
+        requestData["age"] = age;
+        requestData["status"] = "HIT-REDIS";
+        console.log("redis data", redisData);
+        console.log("redis hit requestData", requestData);
+        stats.recentRequests.push(requestData);
         res.send(buffer);
         return;
       }
@@ -63,11 +80,12 @@ const startServer = async (options) => {
       const pathData = await getPrismaCache(hashFileName);
 
       if (pathData) {
-        const isExpired = isExpired(pathData.createdAt);
+        const expired = isExpired(pathData.createdAt);
 
-        console.log(`is expired ? ${isExpired}`);
+        console.log(`is expired ? ${expired}`);
 
-        if (!isExpired) {
+        if (!expired) {
+          stats.cacheHits++;
           const absolutePath = path.resolve(pathData.localFilePath);
 
           if (fileExists(absolutePath)) {
@@ -83,6 +101,14 @@ const startServer = async (options) => {
             console.log(`cache HIT at ${remoteUrl}`);
             res.setHeader("x-cache", "HIT-DISK");
             res.sendFile(absolutePath);
+            const age = Date.now() - new Date(pathData.createdAt).getTime();
+            const latency = Date.now() - startTime;
+            requestData["latency"] = latency;
+            requestData["age"] = age;
+            requestData["status"] = "HIT-DISK";
+            console.log("disk data", pathData);
+            console.log("disk hit requestData" , requestData);
+            stats.recentRequests.push(requestData);
             return;
           }
         }
@@ -96,7 +122,7 @@ const startServer = async (options) => {
         res.status(response.status).send(await response.text());
         return;
       }
-
+      stats.cacheMisses = stats.totalRequests - stats.cacheHits;
       console.log(`cache MISS at ${remoteUrl}`);
 
       const headers = extractHeaders(response, res);
@@ -129,12 +155,19 @@ const startServer = async (options) => {
 
       res.setHeader("x-cache", "MISS");
       res.sendFile(path.resolve(localFilePath));
+      const latency = Date.now() - startTime;
+      requestData["latency"] = latency;
+      requestData["age"] = 0;
+      requestData["status"] = "MISS";
+      stats.recentRequests.push(requestData);
       return;
     } catch (error) {
       console.error(error);
       res.status(500).send("Internal Server Error");
     }
   });
+
+ 
 
   app.listen(options.port, () => {
     console.log(

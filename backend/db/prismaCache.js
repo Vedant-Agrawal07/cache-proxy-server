@@ -1,26 +1,26 @@
 import prisma from "./db.js";
 
-export const getPrismaCache = async (hashFileName) => {
+export const getPrismaCache = async (hashedFileName) => {
   return prisma.path.findUnique({
-    where: { hashFileName },
+    where: { hashedFileName },
   });
 };
 
-export const deletePrismaCache = async (hashFileName) => {
+export const deletePrismaCache = async (hashedFileName) => {
   return prisma.path.delete({
-    where: { hashFileName },
+    where: { hashedFileName },
   });
 };
 
 export const setPrismaCache = async (
-  hashFileName,
+  hashedFileName,
   localFilePath,
   contentType,
   extension,
   headers,
 ) => {
   return prisma.path.upsert({
-    where: { hashFileName },
+    where: { hashedFileName },
     update: {
       localFilePath,
       contentType,
@@ -28,7 +28,7 @@ export const setPrismaCache = async (
       headers,
     },
     create: {
-      hashFileName,
+      hashedFileName,
       localFilePath,
       contentType,
       extension,

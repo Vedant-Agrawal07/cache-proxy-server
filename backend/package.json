@@ -16,7 +16,9 @@
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "commander": "^15.0.0",
+    "cors": "^2.8.6",
     "express": "^5.2.1",
+    "express-async-handler": "^1.2.0",
     "mime-types": "^3.0.2",
     "prisma": "^6.19.3",
     "redis": "^6.0.0"
