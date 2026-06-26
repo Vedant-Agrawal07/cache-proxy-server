@@ -1,5 +1,6 @@
 import axios from "axios";
 import { createContext, useContext, useEffect, useState } from "react";
+import { healthChk } from "../util/healthCheck.js";
 const statContext = createContext();
 const StatProvider = ({ children }) => {
   const [hitRate, setHitRate] = useState(0);
@@ -7,10 +8,21 @@ const StatProvider = ({ children }) => {
   const [cacheEntries, setCacheEntries] = useState(0);
   const [cacheSize, setCacheSize] = useState(0);
   const [recentRequests, setRecentRequests] = useState([]);
+  const [isActive, setIsActive] = useState(false);
   useEffect(() => {
+    const healthStatus = async () => {
+      try {
+        setIsActive(await healthChk());
+      } catch (error) {
+        console.error(error);
+      }
+    };
     const fetchStats = async () => {
       try {
-        const { data } = await axios.get("http://localhost:3000/api/admin/stats");
+        const { data } = await axios.get(
+          "http://localhost:3000/api/admin/stats",
+        );
+        console.log(data);
         setHitRate(data.hitRate);
         setTotalRequests(data.totalRequests);
         setCacheEntries(data.cacheEntries);
@@ -20,9 +32,14 @@ const StatProvider = ({ children }) => {
         console.error(err);
       }
     };
+    healthStatus();
     fetchStats();
-    const intervalId = setInterval(fetchStats, 3000);
-    return () => clearInterval(intervalId);
+    const statsInterval = setInterval(fetchStats, 3000);
+    const healthInterval = setInterval(healthStatus, 5000);
+    return () => {
+      clearInterval(statsInterval);
+      clearInterval(healthInterval);
+    };
   }, []);
   return (
     <>
@@ -38,6 +55,8 @@ const StatProvider = ({ children }) => {
           setCacheSize,
           recentRequests,
           setRecentRequests,
+          isActive,
+          setIsActive,
         }}
       >
         {children}

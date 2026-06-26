@@ -14,6 +14,7 @@ const HeroComponent = () => {
     setCacheSize,
     recentRequests,
     setRecentRequests,
+    isActive,
   } = statState();
 
   const columnValues = [
@@ -31,15 +32,15 @@ const HeroComponent = () => {
   //   setRecentRequests = data.recentRequests;
   // };
 
-  let isRunning = true;
+  // let isActive = true;
   return (
     <>
-      {!isRunning && (
+      {!isActive && (
         <div className="text-red-400 flex items-center justify-center mt-6.5 mb-7.5">
-          <p className="inline">Can't reach server proxy is it running ?</p>
+          <p className="inline">Can't reach server proxy, is it running ?</p>
         </div>
       )}
-      <div className={isRunning && "mt-6.5 mb-7.5"}>
+      <div className={isActive ?"mt-6.5 mb-7.5":""}>
         <div className="grid grid-cols-4 gap-4">
           {columnValues.map((column, index) => (
             <div
@@ -47,7 +48,7 @@ const HeroComponent = () => {
               className="bg-[#11151C] p-4 my-text rounded-xl border border-gray-700 pb-6"
             >
               <p>{column.label}</p>
-              <p className="font-bold text-white">{column.value}</p>
+              <p className="font-bold text-white text-xl">{column.value}</p>
             </div>
           ))}
         </div>

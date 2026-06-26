@@ -24,7 +24,7 @@ const hitRate = ((stats.cacheHits / stats.totalRequests)*100).toFixed(2);
 
 const adminDelete = expressAsyncHandler(async(req , res)=>{
   try {
-    await cacheClear;
+    await cacheClear();
   res.send("Purge Success"); 
   } catch (error) {
     console.error(error.message);

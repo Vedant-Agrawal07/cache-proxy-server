@@ -22,7 +22,13 @@ import { generateHash } from "./utils/hash.js";
 import { isExpired } from "./utils/expireUtil.js";
 import { stats } from "./stats.js";
 import adminRoute from "./route/adminRoute.js";
-import cors from "cors"
+import cors from "cors";
+
+const ignoredPaths = [
+  "/favicon.ico",
+  "/robots.txt",
+  "/.well-known/appspecific/com.chrome.devtools.json",
+];
 
 const app = express();
 app.use(cors());
@@ -35,14 +41,21 @@ const startServer = async (options) => {
     console.error("no path");
     return;
   }
- app.use("/api/admin", adminRoute);
- 
+  app.get("/api/health" , async(req , res)=>{
+    res.status(200).json({active:"active",timeStamp : Date.now()});
+  })
+  app.use("/api/admin", adminRoute);
+
   app.use(async (req, res) => {
     try {
       const startTime = Date.now();
       let requestData = {};
+      if (ignoredPaths.includes(req.path)) {
+        return res.sendStatus(404);
+      }
       stats.totalRequests++;
       const reqPath = req.path;
+      console.log("REQUEST:", req.method, req.originalUrl);
       requestData["reqPath"] = reqPath;
       const remoteUrl = `${options.origin}${reqPath}`;
 
@@ -107,7 +120,7 @@ const startServer = async (options) => {
             requestData["age"] = age;
             requestData["status"] = "HIT-DISK";
             console.log("disk data", pathData);
-            console.log("disk hit requestData" , requestData);
+            console.log("disk hit requestData", requestData);
             stats.recentRequests.push(requestData);
             return;
           }
@@ -166,8 +179,6 @@ const startServer = async (options) => {
       res.status(500).send("Internal Server Error");
     }
   });
-
- 
 
   app.listen(options.port, () => {
     console.log(
