@@ -6,17 +6,19 @@ import './App.css'
 import HeaderComponent from './components/headerComponent.jsx'
 import HeroComponent from './components/heroComponent.jsx'
 import FooterComponent from './components/footerComponent.jsx'
+import { Toaster } from 'sonner'
 
 function App() {
   const [count, setCount] = useState(0)
 
   return (
     <>
-<HeaderComponent/>
-<HeroComponent/>
-<FooterComponent/>
+      <Toaster position="top-center" richColors closeButton />
+      <HeaderComponent />
+      <HeroComponent />
+      <FooterComponent />
     </>
-  )
+  );
 }
 
 export default App

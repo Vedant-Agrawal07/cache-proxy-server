@@ -9,11 +9,13 @@ const StatProvider = ({ children }) => {
   const [cacheSize, setCacheSize] = useState(0);
   const [recentRequests, setRecentRequests] = useState([]);
   const [isActive, setIsActive] = useState(false);
+  const [hitRateHistory, setHitRateHistory] = useState([]);
   useEffect(() => {
     const healthStatus = async () => {
       try {
         setIsActive(await healthChk());
       } catch (error) {
+        setHitRateHistory([]);
         console.error(error);
       }
     };
@@ -28,6 +30,22 @@ const StatProvider = ({ children }) => {
         setCacheEntries(data.cacheEntries);
         setCacheSize(data.cacheSize);
         setRecentRequests(data.recentRequests);
+        setHitRateHistory((prev) => {
+          if (
+            prev.length > 0 &&
+            prev[prev.length - 1].hitRate === data.hitRate
+          ) {
+            return prev;
+          }
+
+          return [
+            ...prev,
+            {
+              time: Date.now(),
+              hitRate: Number(data.hitRate),
+            },
+          ];
+        });
       } catch (err) {
         console.error(err);
       }
@@ -57,6 +75,8 @@ const StatProvider = ({ children }) => {
           setRecentRequests,
           isActive,
           setIsActive,
+          hitRateHistory,
+          setHitRateHistory,
         }}
       >
         {children}
