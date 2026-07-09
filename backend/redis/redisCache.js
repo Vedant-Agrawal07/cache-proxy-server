@@ -1,22 +1,35 @@
-import client from "./redisConnect.js";
+import client, { isRedisConnect } from "./redisConnect.js";
 
 export const getRedisCache = async (hashFileName) => {
-  const redisData = await client.hGetAll(hashFileName);
-
-  if (Object.keys(redisData).length === 0) {
+  if (!isRedisConnect) {
     return null;
   }
+  try {
+    const redisData = await client.hGetAll(hashFileName);
 
-  return redisData;
+    if (Object.keys(redisData).length === 0) {
+      return null;
+    }
+    return redisData;
+  } catch (error) {
+    return null;
+  }
 };
 
 export const setRedisCache = async (hashFileName, buffer, headersString) => {
-  await client.hSet(hashFileName, {
-    hashFileName,
-    resBody: buffer.toString("base64"),
-    headers: headersString,
-    createdAt: Date.now(),
-  });
+  if (!isRedisConnect) {
+    return;
+  }
+  try {
+    await client.hSet(hashFileName, {
+      hashFileName,
+      resBody: buffer.toString("base64"),
+      headers: headersString,
+      createdAt: Date.now(),
+    });
 
-  await client.expire(hashFileName, 86400);
+    await client.expire(hashFileName, 86400);
+  } catch (error) {
+    console.error("Redis unavailable", error.message);
+  }
 };

@@ -23,7 +23,6 @@ import { isExpired } from "./utils/expireUtil.js";
 import { stats } from "./stats.js";
 import adminRoute from "./route/adminRoute.js";
 import cors from "cors";
-
 const ignoredPaths = [
   "/favicon.ico",
   "/robots.txt",
@@ -41,9 +40,9 @@ const startServer = async (options) => {
     console.error("no path");
     return;
   }
-  app.get("/api/health" , async(req , res)=>{
-    res.status(200).json({active:"active",timeStamp : Date.now()});
-  })
+  app.get("/api/health", async (req, res) => {
+    res.status(200).json({ active: "active", timeStamp: Date.now() });
+  });
   app.use("/api/admin", adminRoute);
 
   app.use(async (req, res) => {
